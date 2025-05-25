@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Flappy Bird Phaser Game</title>
+  <style>body { margin: 0; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+</head>
+<body>
+
+<script>
+  class MyGameScene extends Phaser.Scene {
+    constructor() {
+      super('MyGameScene');
+      // Removed unused this.score = 0 from here
+    }
+
+    preload() {
+      this.load.image('bird', 'assets/bird.png');
+      this.load.image('pipe', 'assets/pipe.png');
+    }
+
+    create() {
+      this.score = 0; // Initialize score here on scene creation
+      this.scoreText = this.add.text(20, 20, 'Score: 0', { fontSize: '32px', fill: '#fff' });
+
+      this.bird = this.physics.add.sprite(400, 100, 'bird');
+      this.bird.setCollideWorldBounds(true);
+      this.bird.setGravityY(400);
+
+      this.input.on('pointerdown', () => {
+        this.bird.setVelocityY(-300);
+      });
+
+      this.pipes = this.physics.add.group();
+      this.pipeGap = 150;
+      this.pipeSpeed = -200;
+
+      this.generatePipes();
+
+      this.time.addEvent({
+        delay: 1500,
+        callback: this.generatePipes,
+        callbackScope: this,
+        loop: true
+      });
+
+      this.gameOver = false;
+    }
+
+    update() {
+      if (this.gameOver) {
+        return;
+      }
+
+      this.pipes.getChildren().forEach(pipe => {
+        pipe.x += this.pipeSpeed;
+
+        // Only count score once per pipe pair - bottom pipes only (not flipped)
+        if (!pipe.scored && !pipe.flipY && pipe.x + pipe.width < this.bird.x) {
+          pipe.scored = true;
+          this.updateScore();
+        }
+
+        if (pipe.x + pipe.width < 0) {
+          this.pipes.remove(pipe, true, true);
+        }
+      });
+
+      if (this.input.activePointer.isDown) {
+        this.bird.setVelocityY(-300);
+      }
+
+      if (
+        this.physics.overlap(this.bird, this.pipes) ||
+        this.bird.y > this.sys.game.config.height ||
+        this.bird.y < 0
+      ) {
+        this.gameOver = true;
+        this.physics.pause();
+        this.gameOverText = this.add.text(400, 300, 'Game Over', { fontSize: '64px', fill: '#fff' }).setOrigin(0.5);
+        this.restartButton = this.add.text(400, 400, 'Restart', { fontSize: '32px', fill: '#fff', backgroundColor: '#888' }).setOrigin(0.5).setInteractive();
+        this.restartButton.on('pointerdown', () => this.scene.restart());
+      }
+    }
+
+    generatePipes() {
+      const pipeY = Phaser.Math.Between(100, 400);
+
+      const topPipe = this.physics.add.sprite(800, pipeY - this.pipeGap / 2, 'pipe');
+      topPipe.setFlipY(true);
+      topPipe.body.allowGravity = false;
+      topPipe.setVelocityX(this.pipeSpeed);
+      topPipe.scored = false;
+
+      const bottomPipe = this.physics.add.sprite(800, pipeY + this.pipeGap / 2, 'pipe');
+      bottomPipe.body.allowGravity = false;
+      bottomPipe.setVelocityX(this.pipeSpeed);
+
+      this.pipes.add(topPipe);
+      this.pipes.add(bottomPipe);
+    }
+
+    updateScore() {
+      this.score += 1;
+      this.scoreText.setText('Score: ' + this.score);
+    }
+  }
+
+  const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    backgroundColor: '#1d1d1d',
+    physics: {
+      default: 'arcade',
+      arcade: {
+        gravity: { y: 400 },
+        debug: false
+      }
+    },
+    scene: MyGameScene
+  };
+
+  const game = new Phaser.Game(config);
+</script>
+
+</body>
+</html>
